@@ -4,6 +4,7 @@ import type { ApplicationRecord } from '../domain/types'
 import { buildAcord125Preview } from '../adapters/applications/acord125/adapter'
 import { getApplicationDefinition } from '../domain/applicationDefinitions'
 import {
+  answerRequirement,
   applyCustomerReviewChange,
   confirmCustomerReview,
   markGenerated,
@@ -43,7 +44,7 @@ export const AppStateProvider = ({ children }: { children: ReactNode }) => {
       acordPreview: buildAcord125Preview(application),
       readiness,
       processDocuments: () => setApplication((current) => processDocumentIntake(current)),
-      answerWizardQuestion: (field, value) => setApplication((current) => recalculateApplication(applyCustomerReviewChange(current, field, value))),
+      answerWizardQuestion: (field, value) => setApplication((current) => answerRequirement(current, field, value)),
       resetDemo: () => setApplication(normalizeApplication(createSeedApplication())),
       confirmCustomerReview: () => setApplication((current) => confirmCustomerReview(current)),
       confirmRevenueChange: () => setApplication((current) => applyCustomerReviewChange(current, 'business.annualRevenue', 150000)),

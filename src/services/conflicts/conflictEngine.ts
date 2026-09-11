@@ -7,7 +7,7 @@ import type {
   FieldValue,
   RequirementDefinition,
 } from '../../domain/types'
-import { getFieldValue, hasMeaningfulValue, setFieldValue } from '../application/fieldAccess'
+import { hasMeaningfulValue, setFieldValue } from '../application/fieldAccess'
 import { valuesEquivalent } from './normalization'
 
 const isHistoricalDocument = (evidence: FieldProvenance) => {

@@ -138,22 +138,23 @@ export const answerRequirement = (application: ApplicationRecord, canonicalField
 }
 
 export const confirmCustomerReview = (application: ApplicationRecord) => {
-  const definition = getDefinition(application)
+  const hydrated = hydrateFieldStates(application)
+  const definition = getDefinition(hydrated)
   const confirmableFields = definition.requirements
     .filter((requirement) => requirement.requiresCustomerConfirmation)
     .map((requirement) => requirement.canonicalField)
 
   const timestamp = new Date().toISOString()
   const next = {
-    ...hydrateFieldStates(application),
-    fieldStates: application.fieldStates.map((fieldState) =>
+    ...hydrated,
+    fieldStates: hydrated.fieldStates.map((fieldState) =>
       confirmableFields.includes(fieldState.canonicalField)
         ? { ...fieldState, customerConfirmed: hasMeaningfulValue(fieldState.selectedValue), updatedAt: timestamp }
         : fieldState,
     ),
     profile: {
-      ...application.profile,
-      fieldProvenance: application.profile.fieldProvenance.map((item) =>
+      ...hydrated.profile,
+      fieldProvenance: hydrated.profile.fieldProvenance.map((item) =>
         confirmableFields.includes(item.canonicalField) && item.sourceType === 'customer_answer'
           ? { ...item, customerConfirmed: true, timestamp }
           : item,
@@ -176,20 +177,21 @@ export const applyCustomerReviewChange = (
 }
 
 export const verifyApplication = (application: ApplicationRecord) => {
-  const definition = getDefinition(application)
+  const hydrated = hydrateFieldStates(application)
+  const definition = getDefinition(hydrated)
   const verifiableFields = definition.requirements
     .filter((requirement) => requirement.requiresBrokerVerification)
     .map((requirement) => requirement.canonicalField)
   const timestamp = new Date().toISOString()
 
   const next = {
-    ...hydrateFieldStates(application),
-    fieldStates: application.fieldStates.map((fieldState) =>
+    ...hydrated,
+    fieldStates: hydrated.fieldStates.map((fieldState) =>
       verifiableFields.includes(fieldState.canonicalField) && hasMeaningfulValue(fieldState.selectedValue)
         ? { ...fieldState, brokerVerified: true, updatedAt: timestamp }
         : fieldState,
     ),
-    brokerNotes: [...application.brokerNotes, 'Broker verified all required fields for submission readiness.'],
+    brokerNotes: [...hydrated.brokerNotes, 'Broker verified all required fields for submission readiness.'],
   }
 
   return recalculateApplication(next)

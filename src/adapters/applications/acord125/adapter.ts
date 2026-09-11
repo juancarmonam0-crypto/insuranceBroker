@@ -76,7 +76,7 @@ const buildMappingRow = (application: ApplicationRecord, mapping: MappingDefinit
     return {
       acordField: mapping.displayLabel,
       canonicalField: mapping.canonicalField,
-      value: mapping.transform ? mapping.transform(value) : formatValue(value),
+      value: mapping.transform ? mapping.transform(value as FieldValue) : formatValue(value as FieldValue),
       status: 'review_required',
       note: `${mapping.targetField} maps from canonical application state but still needs review.`,
     }
@@ -85,7 +85,7 @@ const buildMappingRow = (application: ApplicationRecord, mapping: MappingDefinit
   return {
     acordField: mapping.displayLabel,
     canonicalField: mapping.canonicalField,
-    value: mapping.transform ? mapping.transform(value) : formatValue(value),
+    value: mapping.transform ? mapping.transform(value as FieldValue) : formatValue(value as FieldValue),
     status: 'mapped',
     note: `${mapping.targetField} maps from canonical application state.`,
   }
