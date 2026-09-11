@@ -4,6 +4,8 @@ import { StatusBadge } from '../../components/StatusBadge'
 import { SurfaceCard } from '../../components/SurfaceCard'
 import { useAppState } from '../../state/useAppState'
 import { getWizardQuestions } from '../../services/applicationEngine'
+import { getApplicationDefinition } from '../../domain/applicationDefinitions'
+import { getApplicableRequirements } from '../../services/application/requirementsEngine'
 
 const sectionMap: Record<string, { title: string; summary: string }> = {
   overview: {
@@ -42,6 +44,8 @@ export const CustomerOverviewPage = () => {
   const slug = location.pathname.split('/').at(-1) ?? 'overview'
   const section = sectionMap[slug]
   const wizardQuestions = getWizardQuestions(application)
+  const definition = getApplicationDefinition(application.definitionId, application.definitionVersion)
+  const totalRequiredFields = getApplicableRequirements(application, definition).filter((item) => item.requirement.required).length
 
   if (slug !== 'overview' && section) {
     return (
@@ -57,7 +61,7 @@ export const CustomerOverviewPage = () => {
         </div>
         <SurfaceCard title={section.title}>
           <dl className="info-grid">
-            <div><dt>Known required fields</dt><dd>{7 - application.missingFields.length}</dd></div>
+            <div><dt>Known required fields</dt><dd>{totalRequiredFields - application.missingFields.length}</dd></div>
             <div><dt>Missing fields</dt><dd>{application.missingFields.length}</dd></div>
             <div><dt>Pending questions</dt><dd>{wizardQuestions.length}</dd></div>
             <div><dt>Status</dt><dd><StatusBadge status={application.status} /></dd></div>

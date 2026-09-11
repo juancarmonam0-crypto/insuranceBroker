@@ -9,6 +9,7 @@ import {
   applyCustomerReviewChange,
   confirmCustomerReview,
   markGenerated,
+  processDocumentIntake,
   recalculateApplication,
   resolveApplicationConflict,
   verifyApplication,
@@ -94,6 +95,16 @@ describe('normalization and conflicts', () => {
     expect(application.profile.fieldProvenance.some((item) => item.sourceType === 'broker' && item.value === 275000)).toBe(true)
   })
 })
+
+  test('document intake updates preferred channel, current policy document, and related provenance timestamp', () => {
+    const application = createApplication()
+    const beforeTimestamp = application.profile.fieldProvenance.find((item) => item.sourceDocument === 'CurrentPolicy.pdf')?.timestamp
+    const updated = processDocumentIntake(application)
+
+    expect(updated.profile.preferredChannel).toBe('document_upload')
+    expect(updated.profile.documents.find((item) => item.type === 'Current Policy')?.status).toBe('complete')
+    expect(updated.profile.fieldProvenance.find((item) => item.sourceDocument === 'CurrentPolicy.pdf')?.timestamp).not.toBe(beforeTimestamp)
+  })
 
 describe('readiness and status', () => {
   test('required customer confirmation blocks readiness', () => {

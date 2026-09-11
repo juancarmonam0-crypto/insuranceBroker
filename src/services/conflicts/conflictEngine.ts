@@ -37,6 +37,18 @@ const getLatestCustomerDeclaration = (provenance: FieldProvenance[]) => provenan
 
 const getRequirementMap = (requirements: RequirementDefinition[]) => new Map(requirements.map((requirement) => [requirement.canonicalField, requirement]))
 
+const isSameConflictShape = (existing: ConflictRecord, next: ConflictRecord) => {
+  if (!valuesEquivalent(existing.customerValue, next.customerValue)) return false
+  if (existing.evidence.length != next.evidence.length) return false
+
+  return existing.evidence.every((evidence, index) => {
+    const candidate = next.evidence[index]
+    return candidate !== undefined
+      && evidence.id === candidate.id
+      && valuesEquivalent(evidence.value, candidate.value)
+  })
+}
+
 const getFieldState = (application: ApplicationRecord, canonicalField: string): ApplicationFieldState | undefined =>
   application.fieldStates.find((fieldState) => fieldState.canonicalField === canonicalField)
 
@@ -57,13 +69,13 @@ export const evaluateConflict = (
   const existing = application.conflicts.find((conflict) => conflict.canonicalField === requirement.canonicalField)
   const timestamp = new Date().toISOString()
 
-  return {
+  const nextConflict: ConflictRecord = {
     id: existing?.id ?? `conflict-${requirement.id}`,
     agency_id: application.agency_id,
     application_id: application.id,
     canonicalField: requirement.canonicalField,
     label: requirement.label,
-    status: existing?.status ?? 'open',
+    status: 'open',
     message: 'Conflicting information detected. Broker review recommended.',
     customerValue: customerDeclaration.value,
     evidence: conflictsEvidence,
@@ -72,6 +84,12 @@ export const evaluateConflict = (
     updatedAt: timestamp,
     resolution: existing?.resolution,
   }
+
+  if (existing?.status && existing.status !== 'open' && isSameConflictShape(existing, nextConflict)) {
+    return { ...nextConflict, status: existing.status }
+  }
+
+  return nextConflict
 }
 
 export const evaluateConflicts = (application: ApplicationRecord, requirements: RequirementDefinition[]) => {

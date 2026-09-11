@@ -215,8 +215,9 @@ export const verifyApplication = (application: ApplicationRecord) => {
     .map((requirement) => requirement.canonicalField)
   const timestamp = new Date().toISOString()
 
+  const currentConflicts = evaluateConflicts(hydrated, definition.requirements.filter((requirement) => requirement.material))
   const conflictedFields = new Set(
-    hydrated.conflicts
+    currentConflicts
       .filter((conflict) => conflict.blocking && conflict.status !== 'resolved')
       .map((conflict) => conflict.canonicalField),
   )
