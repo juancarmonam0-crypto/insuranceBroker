@@ -156,14 +156,14 @@ export const AppStateProvider = ({ children }: { children: ReactNode }) => {
           getApplicationDefinition(generatedApplication.definitionId, generatedApplication.definitionVersion),
         )
 
-        updateFromApplication(generatedApplication)
-
         if (!(generatedReadiness.ready || terminalStatuses.has(generatedApplication.status))) {
+          updateFromApplication(generatedApplication)
           return
         }
 
         const snapshot = createApplicationSnapshot(generatedApplication, generatedReadiness, buildAcord125Preview(generatedApplication))
         const persistedSnapshot = await createSnapshotRecord(snapshot)
+        updateFromApplication(generatedApplication)
         setSnapshots((current) => [...current, persistedSnapshot].sort((left, right) => left.createdAt.localeCompare(right.createdAt)))
       },
     }),

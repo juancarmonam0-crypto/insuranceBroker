@@ -202,6 +202,11 @@ const splitName = (fullName: string) => {
 
 const joinName = (firstName?: string | null, lastName?: string | null) => `${firstName ?? ''} ${lastName ?? ''}`.trim()
 
+const buildDocumentStoragePath = (agencyId: string, customerId: string, applicationId: string | undefined, fileName: string) => {
+  const safeFileName = fileName.replaceAll(/[\\/]/g, '-')
+  return `${agencyId}/${customerId}/${applicationId ?? 'profile'}/${safeFileName}`
+}
+
 const fromDocumentRow = (row: DocumentRow) => ({
   id: row.id,
   agency_id: row.agency_id,
@@ -529,49 +534,55 @@ export const createSupabasePersistence = (client: SupabaseClient = getSupabaseBr
       updated_at: customer.updatedAt,
     }))
 
-    await assertWriteResult(client.from('people').upsert(customer.profile.people.map((person) => {
-      const { firstName, lastName } = splitName(person.fullName)
-      return {
-        id: person.id,
+    if (customer.profile.people.length > 0) {
+      await assertWriteResult(client.from('people').upsert(customer.profile.people.map((person) => {
+        const { firstName, lastName } = splitName(person.fullName)
+        return {
+          id: person.id,
+          agency_id: customer.agency_id,
+          customer_id: customer.id,
+          first_name: firstName,
+          last_name: lastName,
+          dob: null,
+          role: person.role,
+          email: person.email,
+          phone: person.phone,
+          created_at: customer.createdAt,
+          updated_at: customer.updatedAt,
+        }
+      })))
+    }
+
+    if (customer.profile.locations.length > 0) {
+      await assertWriteResult(client.from('locations').upsert(customer.profile.locations.map((location) => ({
+        id: location.id,
         agency_id: customer.agency_id,
         customer_id: customer.id,
-        first_name: firstName,
-        last_name: lastName,
-        dob: null,
-        role: person.role,
-        email: person.email,
-        phone: person.phone,
+        label: location.label,
+        address_line_1: location.addressLine1,
+        city: location.city,
+        state: location.state,
+        postal_code: location.postalCode,
+        occupancy: location.occupancy,
         created_at: customer.createdAt,
         updated_at: customer.updatedAt,
-      }
-    })))
+      }))))
+    }
 
-    await assertWriteResult(client.from('locations').upsert(customer.profile.locations.map((location) => ({
-      id: location.id,
-      agency_id: customer.agency_id,
-      customer_id: customer.id,
-      label: location.label,
-      address_line_1: location.addressLine1,
-      city: location.city,
-      state: location.state,
-      postal_code: location.postalCode,
-      occupancy: location.occupancy,
-      created_at: customer.createdAt,
-      updated_at: customer.updatedAt,
-    }))))
-
-    await assertWriteResult(client.from('vehicles').upsert(customer.profile.vehicles.map((vehicle) => ({
-      id: vehicle.id,
-      agency_id: customer.agency_id,
-      customer_id: customer.id,
-      year: vehicle.year,
-      make: vehicle.make,
-      model: vehicle.model,
-      vin: vehicle.vin,
-      usage: vehicle.usage,
-      created_at: customer.createdAt,
-      updated_at: customer.updatedAt,
-    }))))
+    if (customer.profile.vehicles.length > 0) {
+      await assertWriteResult(client.from('vehicles').upsert(customer.profile.vehicles.map((vehicle) => ({
+        id: vehicle.id,
+        agency_id: customer.agency_id,
+        customer_id: customer.id,
+        year: vehicle.year,
+        make: vehicle.make,
+        model: vehicle.model,
+        vin: vehicle.vin,
+        usage: vehicle.usage,
+        created_at: customer.createdAt,
+        updated_at: customer.updatedAt,
+      }))))
+    }
 
     await assertWriteResult(client.from('customer_policies').upsert({
       id: `${customer.id}-policy`,
@@ -586,31 +597,35 @@ export const createSupabasePersistence = (client: SupabaseClient = getSupabaseBr
       updated_at: customer.updatedAt,
     }))
 
-    await assertWriteResult(client.from('loss_history').upsert(customer.profile.lossHistory.map((loss) => ({
-      id: loss.id,
-      agency_id: customer.agency_id,
-      customer_id: customer.id,
-      loss_date: loss.date,
-      description: loss.description,
-      amount: loss.amount,
-      status: loss.status,
-      created_at: customer.createdAt,
-      updated_at: customer.updatedAt,
-    }))))
+    if (customer.profile.lossHistory.length > 0) {
+      await assertWriteResult(client.from('loss_history').upsert(customer.profile.lossHistory.map((loss) => ({
+        id: loss.id,
+        agency_id: customer.agency_id,
+        customer_id: customer.id,
+        loss_date: loss.date,
+        description: loss.description,
+        amount: loss.amount,
+        status: loss.status,
+        created_at: customer.createdAt,
+        updated_at: customer.updatedAt,
+      }))))
+    }
 
-    await assertWriteResult(client.from('documents').upsert(customer.profile.documents.map((document) => ({
-      id: document.id,
-      agency_id: customer.agency_id,
-      customer_id: customer.id,
-      application_id: document.application_id ?? null,
-      storage_path: document.storagePath ?? null,
-      filename: document.fileName,
-      mime_type: document.mimeType ?? null,
-      document_type: document.type,
-      status: document.status,
-      metadata_json: document.metadata ?? {},
-      created_at: document.uploadedAt,
-    }))))
+    if (customer.profile.documents.length > 0) {
+      await assertWriteResult(client.from('documents').upsert(customer.profile.documents.map((document) => ({
+        id: document.id,
+        agency_id: customer.agency_id,
+        customer_id: customer.id,
+        application_id: document.application_id ?? null,
+        storage_path: document.storagePath ?? buildDocumentStoragePath(customer.agency_id, customer.id, document.application_id, document.fileName),
+        filename: document.fileName,
+        mime_type: document.mimeType ?? null,
+        document_type: document.type,
+        status: document.status,
+        metadata_json: document.metadata ?? {},
+        created_at: document.uploadedAt,
+      }))))
+    }
   },
   async saveApplication(application: ApplicationRecord) {
     await assertWriteResult(client.from('applications').upsert({

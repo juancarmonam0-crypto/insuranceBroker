@@ -395,6 +395,8 @@ insert into storage.buckets (id, name, public)
 values ('insurance-documents', 'insurance-documents', false)
 on conflict (id) do nothing;
 
+alter table storage.objects enable row level security;
+
 create policy "agency members read private insurance documents"
 on storage.objects for select
 using (
