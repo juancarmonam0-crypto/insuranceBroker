@@ -61,13 +61,16 @@ export const loadWorkspace = async (workspace: ApplicationWorkspace) => {
 
 export const listApplications = async (agencyId: string) => resolvePersistence().listApplications(agencyId)
 
-export const persistWorkspace = async (workspace: ApplicationWorkspace) => {
-  const adapter = resolvePersistence()
+export const persistWorkspaceWithAdapter = async (adapter: PersistencePort, workspace: ApplicationWorkspace) => {
   await adapter.saveCustomer(workspace.customer)
   await adapter.saveApplication(workspace.application)
   await adapter.saveFieldStates(workspace.application.agency_id, workspace.application.id, workspace.application.fieldStates)
   await adapter.appendProvenance(workspace.application.agency_id, workspace.application.id, workspace.application.profile.fieldProvenance)
   await adapter.saveConflicts(workspace.application.agency_id, workspace.application.id, workspace.application.conflicts)
+}
+
+export const persistWorkspace = async (workspace: ApplicationWorkspace) => {
+  await persistWorkspaceWithAdapter(resolvePersistence(), workspace)
 }
 
 export const createSnapshotRecord = async (snapshot: ApplicationSnapshotRecord) => resolvePersistence().createSnapshot(snapshot)

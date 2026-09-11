@@ -269,6 +269,11 @@ const assertNoError = <T>(result: { data: T; error: { message: string } | null }
   return result.data
 }
 
+const assertWriteResult = async (promise: PromiseLike<{ error: { message: string } | null }>) => {
+  const result = await promise
+  if (result.error) throw new Error(result.error.message)
+}
+
 export const createSupabasePersistence = (client: SupabaseClient = getSupabaseBrowserClient()): PersistencePort => ({
   mode: 'supabase',
   async loadWorkspace({ agencyId, applicationId, customerId, fallbackWorkspace }: PersistenceLoadOptions): Promise<ApplicationWorkspace> {
@@ -444,7 +449,7 @@ export const createSupabasePersistence = (client: SupabaseClient = getSupabaseBr
     }))
   },
   async saveCustomer(customer: CustomerRecord) {
-    await client.from('customers').upsert({
+    await assertWriteResult(client.from('customers').upsert({
       id: customer.id,
       agency_id: customer.agency_id,
       type: customer.type,
@@ -453,9 +458,9 @@ export const createSupabasePersistence = (client: SupabaseClient = getSupabaseBr
       phone: customer.phone ?? null,
       created_at: customer.createdAt,
       updated_at: customer.updatedAt,
-    })
+    }))
 
-    await client.from('businesses').upsert({
+    await assertWriteResult(client.from('businesses').upsert({
       id: `${customer.id}-business`,
       agency_id: customer.agency_id,
       customer_id: customer.id,
@@ -471,9 +476,9 @@ export const createSupabasePersistence = (client: SupabaseClient = getSupabaseBr
       description: customer.profile.business.description,
       created_at: customer.createdAt,
       updated_at: customer.updatedAt,
-    })
+    }))
 
-    await client.from('people').upsert(customer.profile.people.map((person) => {
+    await assertWriteResult(client.from('people').upsert(customer.profile.people.map((person) => {
       const { firstName, lastName } = splitName(person.fullName)
       return {
         id: person.id,
@@ -488,9 +493,9 @@ export const createSupabasePersistence = (client: SupabaseClient = getSupabaseBr
         created_at: customer.createdAt,
         updated_at: customer.updatedAt,
       }
-    }))
+    })))
 
-    await client.from('locations').upsert(customer.profile.locations.map((location) => ({
+    await assertWriteResult(client.from('locations').upsert(customer.profile.locations.map((location) => ({
       id: location.id,
       agency_id: customer.agency_id,
       customer_id: customer.id,
@@ -502,9 +507,9 @@ export const createSupabasePersistence = (client: SupabaseClient = getSupabaseBr
       occupancy: location.occupancy,
       created_at: customer.createdAt,
       updated_at: customer.updatedAt,
-    })))
+    }))))
 
-    await client.from('vehicles').upsert(customer.profile.vehicles.map((vehicle) => ({
+    await assertWriteResult(client.from('vehicles').upsert(customer.profile.vehicles.map((vehicle) => ({
       id: vehicle.id,
       agency_id: customer.agency_id,
       customer_id: customer.id,
@@ -515,9 +520,9 @@ export const createSupabasePersistence = (client: SupabaseClient = getSupabaseBr
       usage: vehicle.usage,
       created_at: customer.createdAt,
       updated_at: customer.updatedAt,
-    })))
+    }))))
 
-    await client.from('customer_policies').upsert({
+    await assertWriteResult(client.from('customer_policies').upsert({
       id: `${customer.id}-policy`,
       agency_id: customer.agency_id,
       customer_id: customer.id,
@@ -528,9 +533,9 @@ export const createSupabasePersistence = (client: SupabaseClient = getSupabaseBr
       premium: customer.profile.currentInsurance.premium,
       created_at: customer.createdAt,
       updated_at: customer.updatedAt,
-    })
+    }))
 
-    await client.from('loss_history').upsert(customer.profile.lossHistory.map((loss) => ({
+    await assertWriteResult(client.from('loss_history').upsert(customer.profile.lossHistory.map((loss) => ({
       id: loss.id,
       agency_id: customer.agency_id,
       customer_id: customer.id,
@@ -540,9 +545,9 @@ export const createSupabasePersistence = (client: SupabaseClient = getSupabaseBr
       status: loss.status,
       created_at: customer.createdAt,
       updated_at: customer.updatedAt,
-    })))
+    }))))
 
-    await client.from('documents').upsert(customer.profile.documents.map((document) => ({
+    await assertWriteResult(client.from('documents').upsert(customer.profile.documents.map((document) => ({
       id: document.id,
       agency_id: customer.agency_id,
       customer_id: customer.id,
@@ -554,10 +559,10 @@ export const createSupabasePersistence = (client: SupabaseClient = getSupabaseBr
       status: document.status,
       metadata_json: document.metadata ?? {},
       created_at: document.uploadedAt,
-    })))
+    }))))
   },
   async saveApplication(application: ApplicationRecord) {
-    await client.from('applications').upsert({
+    await assertWriteResult(client.from('applications').upsert({
       id: application.id,
       agency_id: application.agency_id,
       customer_id: application.customerId,
@@ -575,10 +580,10 @@ export const createSupabasePersistence = (client: SupabaseClient = getSupabaseBr
       profile_json: application.profile,
       created_at: application.createdAt,
       updated_at: application.updatedAt,
-    })
+    }))
   },
   async saveFieldStates(agencyId: string, applicationId: string, fieldStates: ApplicationFieldState[]) {
-    await client.from('application_field_states').upsert(fieldStates.map((fieldState) => ({
+    await assertWriteResult(client.from('application_field_states').upsert(fieldStates.map((fieldState) => ({
       id: `${applicationId}:${fieldState.canonicalField}`,
       agency_id: agencyId,
       application_id: applicationId,
@@ -588,10 +593,10 @@ export const createSupabasePersistence = (client: SupabaseClient = getSupabaseBr
       customer_confirmed: fieldState.customerConfirmed,
       broker_verified: fieldState.brokerVerified,
       updated_at: fieldState.updatedAt,
-    })))
+    }))))
   },
   async appendProvenance(agencyId: string, applicationId: string, provenance: FieldProvenance[]) {
-    await client.from('field_provenance').upsert(provenance.map((item) => ({
+    await assertWriteResult(client.from('field_provenance').upsert(provenance.map((item) => ({
       id: item.id,
       agency_id: agencyId,
       application_id: applicationId,
@@ -608,10 +613,10 @@ export const createSupabasePersistence = (client: SupabaseClient = getSupabaseBr
         brokerVerified: item.brokerVerified,
         ...(item.metadata ?? {}),
       },
-    })))
+    }))))
   },
   async saveConflicts(agencyId: string, applicationId: string, conflicts: ConflictRecord[]) {
-    await client.from('application_conflicts').upsert(conflicts.map((conflict) => ({
+    await assertWriteResult(client.from('application_conflicts').upsert(conflicts.map((conflict) => ({
       id: conflict.id,
       agency_id: agencyId,
       application_id: applicationId,
@@ -630,10 +635,10 @@ export const createSupabasePersistence = (client: SupabaseClient = getSupabaseBr
       resolution_action: conflict.resolution?.type ?? null,
       resolved_at: conflict.resolution?.resolvedAt ?? null,
       created_at: conflict.updatedAt,
-    })))
+    }))))
   },
   async createSnapshot(snapshot: ApplicationSnapshotRecord) {
-    await client.from('application_snapshots').insert({
+    await assertWriteResult(client.from('application_snapshots').insert({
       id: snapshot.id,
       agency_id: snapshot.agency_id,
       application_id: snapshot.application_id,
@@ -643,7 +648,7 @@ export const createSupabasePersistence = (client: SupabaseClient = getSupabaseBr
       snapshot_hash: snapshot.snapshotHash,
       created_at: snapshot.createdAt,
       created_by: snapshot.createdBy,
-    })
+    }))
     return clone(snapshot)
   },
   async listSnapshots(agencyId: string, applicationId: string) {
