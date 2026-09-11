@@ -156,4 +156,14 @@ describe('ACORD preview and generation', () => {
     expect(application.generatedAt).toBeTruthy()
     expect(application.status).toBe('ready_to_submit')
   })
+
+  test('generate application preserves an existing terminal status', () => {
+    const application = markGenerated({
+      ...createApplication(),
+      status: 'submitted',
+    })
+
+    expect(application.generatedAt).toBeTruthy()
+    expect(application.status).toBe('submitted')
+  })
 })

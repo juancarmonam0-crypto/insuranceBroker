@@ -1,4 +1,3 @@
-import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { SurfaceCard } from '../../components/SurfaceCard'
 import { StatusBadge } from '../../components/StatusBadge'
@@ -45,8 +44,6 @@ export const BrokerDashboardPage = () => {
 
 export const BrokerApplicationPage = () => {
   const { application, readiness, resolveConflict, markBrokerVerified } = useAppState()
-  const [correctedRevenue, setCorrectedRevenue] = useState('')
-  const activeConflict = application.conflicts[0]
 
   return (
     <div className="stack-lg">
@@ -86,34 +83,6 @@ export const BrokerApplicationPage = () => {
       </div>
       <SurfaceCard title="Broker actions" eyebrow="Needs Review workflow">
         <div className="button-row button-row--wrap">
-          {activeConflict ? (
-            <>
-              <button className="button" type="button" onClick={() => resolveConflict(activeConflict.id, 'accept_customer')}>Accept Customer Value</button>
-              <button className="button button--secondary" type="button" onClick={() => resolveConflict(activeConflict.id, 'use_evidence')}>Use Evidence</button>
-              <button className="button button--secondary" type="button" onClick={() => resolveConflict(activeConflict.id, 'request_clarification')}>Request Clarification</button>
-              <input
-                className="input"
-                type="number"
-                min="0"
-                placeholder="Corrected revenue"
-                value={correctedRevenue}
-                onChange={(event) => setCorrectedRevenue(event.target.value)}
-              />
-              <button
-                className="button button--secondary"
-                type="button"
-                onClick={() => {
-                  const parsed = Number(correctedRevenue)
-                  if (!Number.isNaN(parsed) && correctedRevenue !== '') {
-                    resolveConflict(activeConflict.id, 'correct_value', parsed)
-                    setCorrectedRevenue('')
-                  }
-                }}
-              >
-                Correct Value
-              </button>
-            </>
-          ) : null}
           <button className="button button--secondary" type="button" onClick={markBrokerVerified}>Verify Application</button>
         </div>
         <p className="muted">AI never picks truth automatically; broker actions resolve exceptions and verification gates readiness.</p>
@@ -140,6 +109,15 @@ export const BrokerApplicationPage = () => {
                       <div><strong>{fact.customerConfirmed ? 'Confirmed' : 'Unconfirmed'}</strong><p className="muted">{fact.brokerVerified ? 'Broker verified' : 'Awaiting broker decision'}</p></div>
                     </div>
                   ))}
+                </div>
+                <div className="button-row button-row--wrap">
+                  <button className="button" type="button" onClick={() => resolveConflict(conflict.id, 'accept_customer')}>Accept Customer Value</button>
+                  <button className="button button--secondary" type="button" onClick={() => resolveConflict(conflict.id, 'use_evidence')}>Use Evidence</button>
+                  <button className="button button--secondary" type="button" onClick={() => resolveConflict(conflict.id, 'request_clarification')}>Request Clarification</button>
+                  <button className="button button--secondary" type="button" onClick={() => {
+                    const nextValue = typeof conflict.customerValue === 'number' ? conflict.customerValue + 25000 : conflict.customerValue
+                    resolveConflict(conflict.id, 'correct_value', nextValue)
+                  }}>Correct Value</button>
                 </div>
               </div>
             ))}
