@@ -327,12 +327,12 @@ export const createSupabasePersistence = (client: SupabaseClient = getSupabaseBr
     if (!applicationRow.data) return clone(fallbackWorkspace)
 
     const [customerRowResult, businessRowResult, peopleRowsResult, locationRowsResult, vehicleRowsResult, policyRowResult, lossRowsResult, documentRowsResult, fieldStateRowsResult, provenanceRowsResult, conflictRowsResult, snapshotRowsResult] = await Promise.all([
-      client.from('customers').select('*').eq('agency_id', agencyId).eq('id', customerId).single(),
-      client.from('businesses').select('*').eq('agency_id', agencyId).eq('customer_id', customerId).single(),
+      client.from('customers').select('*').eq('agency_id', agencyId).eq('id', customerId).maybeSingle(),
+      client.from('businesses').select('*').eq('agency_id', agencyId).eq('customer_id', customerId).maybeSingle(),
       client.from('people').select('*').eq('agency_id', agencyId).eq('customer_id', customerId),
       client.from('locations').select('*').eq('agency_id', agencyId).eq('customer_id', customerId),
       client.from('vehicles').select('*').eq('agency_id', agencyId).eq('customer_id', customerId),
-      client.from('customer_policies').select('*').eq('agency_id', agencyId).eq('customer_id', customerId).single(),
+      client.from('customer_policies').select('*').eq('agency_id', agencyId).eq('customer_id', customerId).maybeSingle(),
       client.from('loss_history').select('*').eq('agency_id', agencyId).eq('customer_id', customerId),
       client.from('documents').select('*').eq('agency_id', agencyId).eq('customer_id', customerId),
       client.from('application_field_states').select('*').eq('agency_id', agencyId).eq('application_id', applicationId),
@@ -341,12 +341,12 @@ export const createSupabasePersistence = (client: SupabaseClient = getSupabaseBr
       client.from('application_snapshots').select('*').eq('agency_id', agencyId).eq('application_id', applicationId).order('created_at'),
     ])
 
-    const customerRow = assertNoError(customerRowResult as { data: CustomerRow; error: { message: string } | null })
-    const businessRow = assertNoError(businessRowResult as { data: BusinessRow; error: { message: string } | null })
+    const customerRow = assertNoError(customerRowResult as { data: CustomerRow | null; error: { message: string } | null })
+    const businessRow = assertNoError(businessRowResult as { data: BusinessRow | null; error: { message: string } | null })
     const peopleRows = assertNoError(peopleRowsResult as { data: PersonRow[]; error: { message: string } | null })
     const locationRows = assertNoError(locationRowsResult as { data: LocationRow[]; error: { message: string } | null })
     const vehicleRows = assertNoError(vehicleRowsResult as { data: VehicleRow[]; error: { message: string } | null })
-    const policyRow = assertNoError(policyRowResult as { data: PolicyRow; error: { message: string } | null })
+    const policyRow = assertNoError(policyRowResult as { data: PolicyRow | null; error: { message: string } | null })
     const lossRows = assertNoError(lossRowsResult as { data: LossRow[]; error: { message: string } | null })
     const documentRows = assertNoError(documentRowsResult as { data: DocumentRow[]; error: { message: string } | null })
     const fieldStateRows = assertNoError(fieldStateRowsResult as { data: FieldStateRow[]; error: { message: string } | null })
@@ -354,20 +354,23 @@ export const createSupabasePersistence = (client: SupabaseClient = getSupabaseBr
     const conflictRows = assertNoError(conflictRowsResult as { data: ConflictRow[]; error: { message: string } | null })
     const snapshotRows = assertNoError(snapshotRowsResult as { data: SnapshotRow[]; error: { message: string } | null })
 
+    const profile = clone(applicationRow.data.profile_json as unknown as ApplicationRecord['profile'])
+    const fallbackCustomer = clone(fallbackWorkspace.customer)
+
     const customer: CustomerRecord = {
-      id: customerRow.id,
-      agency_id: customerRow.agency_id,
-      type: customerRow.type as CustomerRecord['type'],
-      displayName: customerRow.display_name,
-      email: customerRow.email ?? undefined,
-      phone: customerRow.phone ?? undefined,
-      createdAt: customerRow.created_at,
-      updatedAt: customerRow.updated_at,
+      id: customerRow?.id ?? fallbackCustomer.id,
+      agency_id: customerRow?.agency_id ?? fallbackCustomer.agency_id,
+      type: (customerRow?.type as CustomerRecord['type'] | undefined) ?? fallbackCustomer.type,
+      displayName: customerRow?.display_name ?? applicationRow.data.customer_name ?? fallbackCustomer.displayName,
+      email: customerRow?.email ?? fallbackCustomer.email,
+      phone: customerRow?.phone ?? fallbackCustomer.phone,
+      createdAt: customerRow?.created_at ?? fallbackCustomer.createdAt,
+      updatedAt: customerRow?.updated_at ?? fallbackCustomer.updatedAt,
       profile: {
-        agency_id: customerRow.agency_id,
-        customer_id: customerRow.id,
-        preferredChannel: clone((applicationRow.data.profile_json.preferredChannel ?? fallbackWorkspace.customer.profile.preferredChannel) as CustomerRecord['profile']['preferredChannel']),
-        business: {
+        agency_id: customerRow?.agency_id ?? fallbackCustomer.profile.agency_id,
+        customer_id: customerRow?.id ?? fallbackCustomer.profile.customer_id,
+        preferredChannel: clone((profile.preferredChannel ?? fallbackCustomer.profile.preferredChannel) as CustomerRecord['profile']['preferredChannel']),
+        business: businessRow ? {
           agency_id: businessRow.agency_id,
           legalName: businessRow.legal_name,
           dba: businessRow.dba_name ?? undefined,
@@ -379,16 +382,16 @@ export const createSupabasePersistence = (client: SupabaseClient = getSupabaseBr
           yearsInBusiness: businessRow.years_in_business ?? undefined,
           fein: businessRow.fein ?? undefined,
           description: businessRow.description ?? '',
-        },
-        people: peopleRows.map((row) => ({
+        } : clone(profile.business),
+        people: peopleRows.length > 0 ? peopleRows.map((row) => ({
           agency_id: row.agency_id,
           id: row.id,
           fullName: joinName(row.first_name, row.last_name),
           role: row.role ?? '',
           email: row.email ?? '',
           phone: row.phone ?? '',
-        })),
-        locations: locationRows.map((row) => ({
+        })) : clone(profile.people),
+        locations: locationRows.length > 0 ? locationRows.map((row) => ({
           agency_id: row.agency_id,
           id: row.id,
           label: row.label ?? '',
@@ -397,8 +400,8 @@ export const createSupabasePersistence = (client: SupabaseClient = getSupabaseBr
           state: row.state ?? '',
           postalCode: row.postal_code ?? '',
           occupancy: row.occupancy ?? '',
-        })),
-        vehicles: vehicleRows.map((row) => ({
+        })) : clone(profile.locations),
+        vehicles: vehicleRows.length > 0 ? vehicleRows.map((row) => ({
           agency_id: row.agency_id,
           id: row.id,
           year: row.year ?? 0,
@@ -406,24 +409,24 @@ export const createSupabasePersistence = (client: SupabaseClient = getSupabaseBr
           model: row.model ?? '',
           vin: row.vin ?? '',
           usage: row.usage ?? '',
-        })),
-        currentInsurance: {
+        })) : clone(profile.vehicles),
+        currentInsurance: policyRow ? {
           agency_id: policyRow.agency_id,
           carrierName: policyRow.carrier_name ?? '',
           effectiveDate: policyRow.effective_date ?? undefined,
           expirationDate: policyRow.expiration_date ?? '',
           limits: policyRow.limits ?? '',
           premium: policyRow.premium ?? 0,
-        },
-        lossHistory: lossRows.map((row) => ({
+        } : clone(profile.currentInsurance),
+        lossHistory: lossRows.length > 0 ? lossRows.map((row) => ({
           agency_id: row.agency_id,
           id: row.id,
           date: row.loss_date ?? '',
           description: row.description ?? '',
           amount: row.amount ?? 0,
           status: row.status ?? '',
-        })),
-        documents: documentRows.map(fromDocumentRow),
+        })) : clone(profile.lossHistory),
+        documents: documentRows.length > 0 ? documentRows.map(fromDocumentRow) : clone(profile.documents),
       },
     }
 
@@ -444,7 +447,7 @@ export const createSupabasePersistence = (client: SupabaseClient = getSupabaseBr
       generatedAt: applicationRow.data.generated_at ?? undefined,
       createdAt: applicationRow.data.created_at,
       updatedAt: applicationRow.data.updated_at,
-      profile: clone(applicationRow.data.profile_json as unknown as ApplicationRecord['profile']),
+      profile,
       fieldStates: fieldStateRows.map((row) => ({
         canonicalField: row.field_key,
         selectedValue: row.value_json as ApplicationFieldState['selectedValue'],
@@ -722,4 +725,3 @@ export const createSupabasePersistence = (client: SupabaseClient = getSupabaseBr
     return row.data ? fromSnapshotRow(row.data) : null
   },
 })
-

@@ -383,7 +383,7 @@ on public.documents for all
 using (public.is_agency_member(agency_id))
 with check (public.is_agency_member(agency_id));
 
-create policy "agency members insert and read snapshots"
+create policy "agency members read snapshots"
 on public.application_snapshots for select
 using (public.is_agency_member(agency_id));
 

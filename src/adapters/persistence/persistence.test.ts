@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'vitest'
 import { createLocalStoragePersistence } from './localStoragePersistence'
+import { createSupabasePersistence } from './supabasePersistence'
 import { demoApplication, demoCustomer } from '../../data/mock/insurly'
 import type { ApplicationWorkspace } from './types'
 import { createApplicationSnapshot } from '../../services/application/snapshotService'
@@ -17,6 +18,58 @@ class MemoryStorage {
 
   setItem(key: string, value: string) {
     this.store.set(key, value)
+  }
+}
+
+class SnapshotQuery implements PromiseLike<{ data: Record<string, unknown>[]; error: null }> {
+  private readonly filters = new Map<string, unknown>()
+  private readonly rows: Record<string, unknown>[]
+
+  constructor(rows: Record<string, unknown>[]) {
+    this.rows = rows
+  }
+
+  eq(column: string, value: unknown) {
+    this.filters.set(column, value)
+    return this
+  }
+
+  order(column: string) {
+    const filtered = this.filteredRows().sort((left, right) => String(left[column] ?? '').localeCompare(String(right[column] ?? '')))
+    return Promise.resolve({ data: filtered, error: null })
+  }
+
+  maybeSingle() {
+    return Promise.resolve({ data: this.filteredRows()[0] ?? null, error: null })
+  }
+
+  then<TResult1 = { data: Record<string, unknown>[]; error: null }, TResult2 = never>(
+    onfulfilled?: ((value: { data: Record<string, unknown>[]; error: null }) => TResult1 | PromiseLike<TResult1>) | null,
+    onrejected?: ((reason: unknown) => TResult2 | PromiseLike<TResult2>) | null,
+  ) {
+    return Promise.resolve({ data: this.filteredRows(), error: null }).then(onfulfilled, onrejected)
+  }
+
+  private filteredRows() {
+    return this.rows.filter((row) => Array.from(this.filters.entries()).every(([column, value]) => row[column] === value))
+  }
+}
+
+class SnapshotSupabaseClientMock {
+  readonly snapshotRows: Record<string, unknown>[] = []
+
+  from(table: string) {
+    if (table !== 'application_snapshots') {
+      throw new Error(`Unexpected table ${table}`)
+    }
+
+    return {
+      insert: async (row: Record<string, unknown>) => {
+        this.snapshotRows.push(structuredClone(row))
+        return { error: null }
+      },
+      select: () => new SnapshotQuery(this.snapshotRows),
+    }
   }
 }
 
@@ -126,5 +179,29 @@ describe('local persistence adapter', () => {
 
     expect(loaded?.snapshotHash).toBe(snapshot.snapshotHash)
     expect(loaded?.snapshot.definitionVersion).toBe(workspace.application.definitionVersion)
+  })
+
+  test('supabase adapter snapshot persistence maps create/list/load behavior', async () => {
+    const client = new SnapshotSupabaseClientMock()
+    const adapter = createSupabasePersistence(client as never)
+    const workspace = createWorkspace()
+    const snapshot = createReadySnapshot(workspace)
+
+    await adapter.createSnapshot(snapshot)
+
+    expect(client.snapshotRows[0]).toMatchObject({
+      agency_id: snapshot.agency_id,
+      application_id: snapshot.application_id,
+      application_definition_id: snapshot.applicationDefinitionId,
+      application_definition_version: snapshot.applicationDefinitionVersion,
+      snapshot_hash: snapshot.snapshotHash,
+    })
+
+    const listed = await adapter.listSnapshots(workspace.application.agency_id, workspace.application.id)
+    const loaded = await adapter.loadSnapshot(workspace.application.agency_id, snapshot.id)
+
+    expect(listed).toHaveLength(1)
+    expect(listed[0]?.snapshot).toEqual(snapshot.snapshot)
+    expect(loaded).toEqual(snapshot)
   })
 })
