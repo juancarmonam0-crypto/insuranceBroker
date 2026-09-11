@@ -37,7 +37,7 @@ const sectionMap: Record<string, { title: string; summary: string }> = {
 }
 
 export const CustomerOverviewPage = () => {
-  const { application } = useAppState()
+  const { application, readiness } = useAppState()
   const location = useLocation()
   const slug = location.pathname.split('/').at(-1) ?? 'overview'
   const section = sectionMap[slug]
@@ -57,7 +57,7 @@ export const CustomerOverviewPage = () => {
         </div>
         <SurfaceCard title={section.title}>
           <dl className="info-grid">
-            <div><dt>Known fields</dt><dd>{Math.max(1, 7 - application.missingFields.length)}</dd></div>
+            <div><dt>Known required fields</dt><dd>{7 - application.missingFields.length}</dd></div>
             <div><dt>Missing fields</dt><dd>{application.missingFields.length}</dd></div>
             <div><dt>Pending questions</dt><dd>{wizardQuestions.length}</dd></div>
             <div><dt>Status</dt><dd><StatusBadge status={application.status} /></dd></div>
@@ -73,7 +73,7 @@ export const CustomerOverviewPage = () => {
       <div className="page-header">
         <div>
           <p className="eyebrow">Application overview</p>
-          <h2>Nexo Rental Solutions LLC · Commercial Insurance · In Progress</h2>
+          <h2>{application.customerName} · {application.lineOfBusiness}</h2>
           <p className="lede">The customer can move between document intake, wizard completion, and review without re-entering known information.</p>
         </div>
         <Link className="button" to="/customer/applications/nexo/documents">
@@ -92,8 +92,8 @@ export const CustomerOverviewPage = () => {
             <span>missing items</span>
           </div>
           <div>
-            <strong>{application.conflicts.length}</strong>
-            <span>conflicts</span>
+            <strong>{readiness.blockers.length}</strong>
+            <span>readiness blockers</span>
           </div>
         </div>
         <ProgressBar value={application.completion} />
@@ -112,8 +112,8 @@ export const CustomerOverviewPage = () => {
         <SurfaceCard title="Next actions" eyebrow="Customer workflow">
           <ul className="list-clean list-clean--spaced">
             <li>Upload and process the current policy to extract known fields automatically.</li>
-            <li>Use the smart wizard for only the {wizardQuestions.length} missing fields.</li>
-            <li>Review key information before the broker verifies the application.</li>
+            <li>Use the smart wizard for only the {wizardQuestions.length} unresolved required questions.</li>
+            <li>Review material declarations before the broker verifies the application.</li>
           </ul>
           <div className="button-row">
             <Link className="button button--secondary" to="/customer/applications/nexo/documents">Upload documents</Link>
@@ -158,15 +158,15 @@ export const DocumentIntakePage = () => {
             <div className="table-like__row provenance-row" key={fact.id}>
               <div>
                 <strong>{fact.label}</strong>
-                <p className="muted">{fact.canonical_field}</p>
+                <p className="muted">{fact.canonicalField}</p>
               </div>
               <div>
                 <strong>{String(fact.value)}</strong>
-                <p className="muted">{fact.source_type} · {fact.source_document ?? 'No document'}{fact.source_page ? ` · p.${fact.source_page}` : ''}</p>
+                <p className="muted">{fact.sourceType} · {fact.sourceDocument ?? 'No document'}{fact.sourcePage ? ` · p.${fact.sourcePage}` : ''}</p>
               </div>
               <div>
                 <strong>{fact.confidence ? `${Math.round(fact.confidence * 100)}%` : '—'}</strong>
-                <p className="muted">{fact.customer_confirmed ? 'Customer confirmed' : 'Awaiting confirmation'}</p>
+                <p className="muted">{fact.customerConfirmed ? 'Customer confirmed' : 'Awaiting confirmation'}</p>
               </div>
             </div>
           ))}
@@ -205,13 +205,13 @@ export const SmartWizardPage = () => {
       <div className="page-header">
         <div>
           <p className="eyebrow">Smart wizard</p>
-          <h2>Only ask what is still missing</h2>
-          <p className="lede">The renderer uses question metadata so this flow can later be DB-driven without redesign.</p>
+          <h2>Only ask what is still unresolved</h2>
+          <p className="lede">The requirement definition drives missing fields, question order, and completion from one metadata source.</p>
         </div>
         <div className="pill-row">
           <span className="pill">Skip known fields</span>
           <span className="pill">Save & resume</span>
-          <span className="pill">Conditional logic ready</span>
+          <span className="pill">Deterministic logic</span>
         </div>
       </div>
 
@@ -219,7 +219,7 @@ export const SmartWizardPage = () => {
         {current ? (
           <div className="wizard-card">
             <div className="split"><span>Step {1} of {questions.length}</span><span>{current.section}</span></div>
-            <ProgressBar value={Math.round(((application.profile.fieldProvenance.length - 5) / 3) * 100)} />
+            <ProgressBar value={application.completion} />
             <h3>{current.label}</h3>
             <p className="muted">{current.helperText}</p>
             <div className="mock-input">Type: {current.type}</div>
@@ -235,14 +235,6 @@ export const SmartWizardPage = () => {
             <Link className="button" to="/customer/applications/nexo/review">Continue to customer review</Link>
           </div>
         )}
-      </SurfaceCard>
-
-      <SurfaceCard title="Supported field types" eyebrow="Reusable question metadata">
-        <div className="pill-row">
-          {['text', 'number', 'currency', 'date', 'boolean', 'select', 'multi-select', 'address', 'person', 'vehicle', 'file upload'].map((item) => (
-            <span key={item} className="pill">{item}</span>
-          ))}
-        </div>
       </SurfaceCard>
     </div>
   )
@@ -281,8 +273,8 @@ export const CustomerReviewPage = () => {
           <div className="table-like">
             {application.conflicts[0]?.evidence.map((fact) => (
               <div className="table-like__row" key={fact.id}>
-                <div><strong>{fact.source_type}</strong><p className="muted">{fact.source_document ?? 'Customer review'}</p></div>
-                <div><strong>{String(fact.value)}</strong><p className="muted">{fact.updated_at.slice(0, 10)}</p></div>
+                <div><strong>{fact.sourceType}</strong><p className="muted">{fact.sourceDocument ?? 'Customer review'}</p></div>
+                <div><strong>{String(fact.value)}</strong><p className="muted">{fact.timestamp.slice(0, 10)}</p></div>
               </div>
             ))}
           </div>

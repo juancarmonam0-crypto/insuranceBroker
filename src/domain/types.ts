@@ -27,9 +27,24 @@ export type DocumentStatus =
 
 export type ConflictStatus = 'open' | 'clarification_requested' | 'resolved'
 
+export type ConflictResolutionType = 'accept_customer' | 'use_evidence' | 'request_clarification' | 'correct_value'
+
 export type ChannelType = 'chatgpt' | 'document_upload' | 'smart_wizard'
 
 export type FieldValue = string | number | boolean | string[]
+
+export type RequirementInputType =
+  | 'text'
+  | 'number'
+  | 'currency'
+  | 'date'
+  | 'boolean'
+  | 'select'
+  | 'multi-select'
+  | 'address'
+  | 'person'
+  | 'vehicle'
+  | 'file_upload'
 
 export interface AgencyConfig {
   id: string
@@ -118,28 +133,48 @@ export interface FieldProvenance {
   id: string
   agency_id: string
   application_id: string
-  canonical_field: string
+  canonicalField: string
   label: string
   value: FieldValue
-  source_type: SourceType
-  source_document?: string
-  source_page?: number
+  sourceType: SourceType
+  sourceDocument?: string
+  sourcePage?: number
   confidence?: number
-  customer_confirmed: boolean
-  broker_verified: boolean
-  updated_at: string
+  customerConfirmed: boolean
+  brokerVerified: boolean
+  timestamp: string
+}
+
+export interface ApplicationFieldState {
+  canonicalField: string
+  selectedValue?: FieldValue
+  selectedEvidenceId?: string
+  customerConfirmed: boolean
+  brokerVerified: boolean
+  updatedAt: string
+}
+
+export interface ConflictResolutionRecord {
+  type: ConflictResolutionType
+  correctedValue?: FieldValue
+  note?: string
+  resolvedAt: string
 }
 
 export interface ConflictRecord {
   id: string
   agency_id: string
   application_id: string
-  canonical_field: string
+  canonicalField: string
   label: string
   status: ConflictStatus
   message: string
   customerValue: FieldValue
   evidence: FieldProvenance[]
+  material: boolean
+  blocking: boolean
+  updatedAt: string
+  resolution?: ConflictResolutionRecord
 }
 
 export interface CanonicalProfile {
@@ -157,14 +192,71 @@ export interface CanonicalProfile {
   fieldProvenance: FieldProvenance[]
 }
 
+export interface ValidationMetadata {
+  min?: number
+  max?: number
+  pattern?: string
+}
+
+export interface RequirementDefinition {
+  id: string
+  canonicalField: string
+  label: string
+  section: string
+  inputType: RequirementInputType
+  required: boolean
+  material: boolean
+  requiresCustomerConfirmation: boolean
+  requiresBrokerVerification: boolean
+  validation?: ValidationMetadata
+  applicability?: {
+    field: string
+    equals: FieldValue
+  }
+}
+
+export interface ApplicationDefinition {
+  id: string
+  lineOfBusiness: string
+  version: number
+  requirements: RequirementDefinition[]
+}
+
+export interface RequirementEvaluation {
+  requirement: RequirementDefinition
+  applicable: boolean
+  satisfied: boolean
+  value?: FieldValue
+  customerConfirmationPending: boolean
+  brokerVerificationPending: boolean
+}
+
+export interface ReadinessBlocker {
+  type: 'missing_requirement' | 'customer_confirmation' | 'broker_verification' | 'conflict'
+  canonicalField?: string
+  message: string
+}
+
+export interface ReadinessResult {
+  ready: boolean
+  blockers: ReadinessBlocker[]
+  missingRequirements: RequirementEvaluation[]
+  unresolvedConflicts: ConflictRecord[]
+  missingConfirmations: RequirementEvaluation[]
+  missingBrokerVerifications: RequirementEvaluation[]
+}
+
 export interface ApplicationRecord {
   agency_id: string
   id: string
   customerName: string
   lineOfBusiness: string
+  definitionId: string
+  definitionVersion: number
   status: ApplicationStatus
   completion: number
   profile: CanonicalProfile
+  fieldStates: ApplicationFieldState[]
   missingFields: string[]
   conflicts: ConflictRecord[]
   customerConfirmed: boolean
@@ -184,20 +276,16 @@ export interface WizardQuestion {
   label: string
   helperText: string
   section: string
-  type:
-    | 'text'
-    | 'number'
-    | 'currency'
-    | 'date'
-    | 'boolean'
-    | 'select'
-    | 'multi-select'
-    | 'address'
-    | 'person'
-    | 'vehicle'
-    | 'file_upload'
+  type: RequirementInputType
   options?: WizardQuestionOption[]
   required?: boolean
+}
+
+export interface MappingDefinition {
+  canonicalField: string
+  displayLabel: string
+  targetField: string
+  transform?: (value: FieldValue) => string
 }
 
 export interface MappingRow {
@@ -206,6 +294,15 @@ export interface MappingRow {
   value: string
   status: 'mapped' | 'missing' | 'review_required'
   note: string
+}
+
+export interface AcordPreview {
+  status: string
+  mappedCount: number
+  missingCount: number
+  reviewRequiredCount: number
+  rows: MappingRow[]
+  generatedPreview: string
 }
 
 export interface BrokerMetric {

@@ -1,21 +1,7 @@
-import type { ApplicationRecord } from '../domain/types'
+import { localStoragePersistence, type PersistencePort } from '../adapters/persistence/localStoragePersistence'
 
-const STORAGE_KEY = 'insurly-demo-application'
+const persistence: PersistencePort = localStoragePersistence
 
-export const loadStoredApplication = () => {
-  if (typeof window === 'undefined') return null
+export const loadStoredApplication = () => persistence.load()
 
-  const raw = window.localStorage.getItem(STORAGE_KEY)
-  if (!raw) return null
-
-  try {
-    return JSON.parse(raw) as ApplicationRecord
-  } catch {
-    return null
-  }
-}
-
-export const persistApplication = (application: ApplicationRecord) => {
-  if (typeof window === 'undefined') return
-  window.localStorage.setItem(STORAGE_KEY, JSON.stringify(application))
-}
+export const persistApplication = (application: Parameters<PersistencePort['save']>[0]) => persistence.save(application)
