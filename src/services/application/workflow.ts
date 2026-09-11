@@ -98,6 +98,30 @@ const appendCustomerProvenance = (
   confirmed: boolean,
 ) => {
   const definition = getDefinition(application)
+  const existing = application.profile.fieldProvenance.find(
+    (item) => item.canonicalField === canonicalField && item.sourceType === 'customer_answer' && item.value === value,
+  )
+
+  if (existing) {
+    const nextProvenance = confirmed && !existing.customerConfirmed
+      ? application.profile.fieldProvenance.map((item) => item.id === existing.id ? { ...item, customerConfirmed: true } : item)
+      : cloneFieldProvenance(application.profile.fieldProvenance)
+
+    return {
+      application: {
+        ...application,
+        profile: {
+          ...application.profile,
+          fieldProvenance: nextProvenance,
+        },
+      },
+      provenance: {
+        ...existing,
+        customerConfirmed: confirmed || existing.customerConfirmed,
+      },
+    }
+  }
+
   const timestamp = new Date().toISOString()
   const provenance: FieldProvenance = {
     id: `prov-customer-${canonicalField}-${timestamp}`,

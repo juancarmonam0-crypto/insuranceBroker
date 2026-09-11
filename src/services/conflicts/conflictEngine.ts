@@ -76,18 +76,19 @@ export const evaluateConflict = (
 
 export const evaluateConflicts = (application: ApplicationRecord, requirements: RequirementDefinition[]) => {
   const requirementMap = getRequirementMap(requirements)
-  const retainedResolved = application.conflicts.filter((conflict) => {
-    if (conflict.status !== 'resolved') return false
-    return requirementMap.has(conflict.canonicalField)
-  })
-
   const evaluated = requirements
     .map((requirement) => evaluateConflict(application, requirement))
     .filter((conflict): conflict is ConflictRecord => conflict !== null)
 
+  const evaluatedFields = new Set(evaluated.map((conflict) => conflict.canonicalField))
+  const retainedResolved = application.conflicts.filter((conflict) => {
+    if (conflict.status !== 'resolved') return false
+    return requirementMap.has(conflict.canonicalField) && evaluatedFields.has(conflict.canonicalField)
+  })
+
   const merged = new Map<string, ConflictRecord>()
   ;[...retainedResolved, ...evaluated].forEach((conflict) => {
-    merged.set(conflict.id, conflict)
+    merged.set(conflict.canonicalField, conflict)
   })
 
   return [...merged.values()].sort((left, right) => left.label.localeCompare(right.label))

@@ -1,4 +1,4 @@
-import type { AcordPreview, ApplicationRecord, FieldValue, MappingDefinition, MappingRow } from '../../../domain/types'
+import type { AcordPreview, ApplicationRecord, FieldValue, MappingDefinition, MappingRow, ReadinessResult } from '../../../domain/types'
 import { getApplicationDefinition } from '../../../domain/applicationDefinitions'
 import { getFieldValue, hasMeaningfulValue } from '../../../services/application/fieldAccess'
 import { calculateReadiness } from '../../../services/application/readinessEngine'
@@ -54,10 +54,12 @@ const mappingDefinitions: MappingDefinition[] = [
   },
 ]
 
-const buildMappingRow = (application: ApplicationRecord, mapping: MappingDefinition): MappingRow => {
+const buildMappingRow = (
+  application: ApplicationRecord,
+  mapping: MappingDefinition,
+  readiness: ReadinessResult,
+): MappingRow => {
   const value = getFieldValue(application, mapping.canonicalField)
-  const definition = getApplicationDefinition(application.definitionId, application.definitionVersion)
-  const readiness = calculateReadiness(application, definition)
   const hasConflict = application.conflicts.some((conflict) => conflict.canonicalField === mapping.canonicalField && conflict.status !== 'resolved')
   const pendingReview = readiness.missingConfirmations.some((item) => item.requirement.canonicalField === mapping.canonicalField)
     || readiness.missingBrokerVerifications.some((item) => item.requirement.canonicalField === mapping.canonicalField)
@@ -92,7 +94,9 @@ const buildMappingRow = (application: ApplicationRecord, mapping: MappingDefinit
 }
 
 export const buildAcord125Preview = (application: ApplicationRecord): AcordPreview => {
-  const rows = mappingDefinitions.map((mapping) => buildMappingRow(application, mapping))
+  const definition = getApplicationDefinition(application.definitionId, application.definitionVersion)
+  const readiness = calculateReadiness(application, definition)
+  const rows = mappingDefinitions.map((mapping) => buildMappingRow(application, mapping, readiness))
   const mappedCount = rows.filter((row) => row.status === 'mapped').length
   const missingCount = rows.filter((row) => row.status === 'missing').length
   const reviewRequiredCount = rows.filter((row) => row.status === 'review_required').length
