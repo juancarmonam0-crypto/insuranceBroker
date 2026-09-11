@@ -145,6 +145,12 @@ export const confirmCustomerReview = (application: ApplicationRecord) => {
     .map((requirement) => requirement.canonicalField)
 
   const timestamp = new Date().toISOString()
+  const selectedCustomerEvidenceIds = new Set(
+    hydrated.fieldStates
+      .filter((fieldState) => confirmableFields.includes(fieldState.canonicalField))
+      .map((fieldState) => fieldState.selectedEvidenceId)
+      .filter((evidenceId): evidenceId is string => Boolean(evidenceId)),
+  )
   const next = {
     ...hydrated,
     fieldStates: hydrated.fieldStates.map((fieldState) =>
@@ -155,7 +161,7 @@ export const confirmCustomerReview = (application: ApplicationRecord) => {
     profile: {
       ...hydrated.profile,
       fieldProvenance: hydrated.profile.fieldProvenance.map((item) =>
-        confirmableFields.includes(item.canonicalField) && item.sourceType === 'customer_answer'
+        selectedCustomerEvidenceIds.has(item.id) && item.sourceType === 'customer_answer'
           ? { ...item, customerConfirmed: true, timestamp }
           : item,
       ),
@@ -184,10 +190,17 @@ export const verifyApplication = (application: ApplicationRecord) => {
     .map((requirement) => requirement.canonicalField)
   const timestamp = new Date().toISOString()
 
+  const conflictedFields = new Set(
+    hydrated.conflicts
+      .filter((conflict) => conflict.blocking && conflict.status !== 'resolved')
+      .map((conflict) => conflict.canonicalField),
+  )
   const next = {
     ...hydrated,
     fieldStates: hydrated.fieldStates.map((fieldState) =>
-      verifiableFields.includes(fieldState.canonicalField) && hasMeaningfulValue(fieldState.selectedValue)
+      verifiableFields.includes(fieldState.canonicalField)
+        && hasMeaningfulValue(fieldState.selectedValue)
+        && !conflictedFields.has(fieldState.canonicalField)
         ? { ...fieldState, brokerVerified: true, updatedAt: timestamp }
         : fieldState,
     ),

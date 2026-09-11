@@ -12,7 +12,7 @@ export const normalizeFieldValue = (value: FieldValue | undefined) => {
     const compact = trimmed.replaceAll(',', '')
 
     if (numericPattern.test(trimmed)) {
-      const numeric = Number(compact.replace('$', ''))
+      const numeric = Number(compact.replace(/\$/g, ''))
       if (!Number.isNaN(numeric)) {
         return { type: 'number' as const, value: numeric }
       }

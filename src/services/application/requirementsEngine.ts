@@ -25,7 +25,7 @@ export const evaluateRequirement = (
   const applicable = isApplicable(application, requirement)
   const fieldState = getFieldState(application, requirement.canonicalField)
   const selectedValue = fieldState?.selectedValue ?? getFieldValue(application, requirement.canonicalField)
-  const satisfied = applicable ? hasMeaningfulValue(selectedValue) : false
+  const satisfied = applicable ? hasMeaningfulValue(selectedValue) : true
 
   return {
     requirement,
