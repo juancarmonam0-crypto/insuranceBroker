@@ -274,6 +274,46 @@ const assertWriteResult = async (promise: PromiseLike<{ error: { message: string
   if (result.error) throw new Error(result.error.message)
 }
 
+const syncCustomerChildRows = async (
+  client: SupabaseClient,
+  table: 'people' | 'locations' | 'vehicles' | 'loss_history' | 'documents',
+  agencyId: string,
+  customerId: string,
+  currentIds: string[],
+) => {
+  const rows = assertNoError((await client
+    .from(table)
+    .select('id')
+    .eq('agency_id', agencyId)
+    .eq('customer_id', customerId)) as { data: Array<{ id: string }>; error: { message: string } | null })
+  const staleIds = rows.map((row) => row.id).filter((id) => !currentIds.includes(id))
+  if (staleIds.length === 0) return
+
+  await assertWriteResult(client
+    .from(table)
+    .delete()
+    .eq('agency_id', agencyId)
+    .eq('customer_id', customerId)
+    .in('id', staleIds))
+}
+
+const syncApplicationConflicts = async (client: SupabaseClient, agencyId: string, applicationId: string, currentIds: string[]) => {
+  const rows = assertNoError((await client
+    .from('application_conflicts')
+    .select('id')
+    .eq('agency_id', agencyId)
+    .eq('application_id', applicationId)) as { data: Array<{ id: string }>; error: { message: string } | null })
+  const staleIds = rows.map((row) => row.id).filter((id) => !currentIds.includes(id))
+  if (staleIds.length === 0) return
+
+  await assertWriteResult(client
+    .from('application_conflicts')
+    .delete()
+    .eq('agency_id', agencyId)
+    .eq('application_id', applicationId)
+    .in('id', staleIds))
+}
+
 export const createSupabasePersistence = (client: SupabaseClient = getSupabaseBrowserClient()): PersistencePort => ({
   mode: 'supabase',
   async loadWorkspace({ agencyId, applicationId, customerId, fallbackWorkspace }: PersistenceLoadOptions): Promise<ApplicationWorkspace> {
@@ -286,33 +326,33 @@ export const createSupabasePersistence = (client: SupabaseClient = getSupabaseBr
     if (applicationRow.error) throw new Error(applicationRow.error.message)
     if (!applicationRow.data) return clone(fallbackWorkspace)
 
-    const customerRow = assertNoError((await client
-      .from('customers')
-      .select('*')
-      .eq('agency_id', agencyId)
-      .eq('id', customerId)
-      .single()) as { data: CustomerRow; error: { message: string } | null })
-    const businessRow = assertNoError((await client
-      .from('businesses')
-      .select('*')
-      .eq('agency_id', agencyId)
-      .eq('customer_id', customerId)
-      .single()) as { data: BusinessRow; error: { message: string } | null })
-    const peopleRows = assertNoError((await client.from('people').select('*').eq('agency_id', agencyId).eq('customer_id', customerId)) as { data: PersonRow[]; error: { message: string } | null })
-    const locationRows = assertNoError((await client.from('locations').select('*').eq('agency_id', agencyId).eq('customer_id', customerId)) as { data: LocationRow[]; error: { message: string } | null })
-    const vehicleRows = assertNoError((await client.from('vehicles').select('*').eq('agency_id', agencyId).eq('customer_id', customerId)) as { data: VehicleRow[]; error: { message: string } | null })
-    const policyRow = assertNoError((await client
-      .from('customer_policies')
-      .select('*')
-      .eq('agency_id', agencyId)
-      .eq('customer_id', customerId)
-      .single()) as { data: PolicyRow; error: { message: string } | null })
-    const lossRows = assertNoError((await client.from('loss_history').select('*').eq('agency_id', agencyId).eq('customer_id', customerId)) as { data: LossRow[]; error: { message: string } | null })
-    const documentRows = assertNoError((await client.from('documents').select('*').eq('agency_id', agencyId).eq('customer_id', customerId)) as { data: DocumentRow[]; error: { message: string } | null })
-    const fieldStateRows = assertNoError((await client.from('application_field_states').select('*').eq('agency_id', agencyId).eq('application_id', applicationId)) as { data: FieldStateRow[]; error: { message: string } | null })
-    const provenanceRows = assertNoError((await client.from('field_provenance').select('*').eq('agency_id', agencyId).eq('application_id', applicationId).order('created_at')) as { data: ProvenanceRow[]; error: { message: string } | null })
-    const conflictRows = assertNoError((await client.from('application_conflicts').select('*').eq('agency_id', agencyId).eq('application_id', applicationId).order('created_at')) as { data: ConflictRow[]; error: { message: string } | null })
-    const snapshotRows = assertNoError((await client.from('application_snapshots').select('*').eq('agency_id', agencyId).eq('application_id', applicationId).order('created_at')) as { data: SnapshotRow[]; error: { message: string } | null })
+    const [customerRowResult, businessRowResult, peopleRowsResult, locationRowsResult, vehicleRowsResult, policyRowResult, lossRowsResult, documentRowsResult, fieldStateRowsResult, provenanceRowsResult, conflictRowsResult, snapshotRowsResult] = await Promise.all([
+      client.from('customers').select('*').eq('agency_id', agencyId).eq('id', customerId).single(),
+      client.from('businesses').select('*').eq('agency_id', agencyId).eq('customer_id', customerId).single(),
+      client.from('people').select('*').eq('agency_id', agencyId).eq('customer_id', customerId),
+      client.from('locations').select('*').eq('agency_id', agencyId).eq('customer_id', customerId),
+      client.from('vehicles').select('*').eq('agency_id', agencyId).eq('customer_id', customerId),
+      client.from('customer_policies').select('*').eq('agency_id', agencyId).eq('customer_id', customerId).single(),
+      client.from('loss_history').select('*').eq('agency_id', agencyId).eq('customer_id', customerId),
+      client.from('documents').select('*').eq('agency_id', agencyId).eq('customer_id', customerId),
+      client.from('application_field_states').select('*').eq('agency_id', agencyId).eq('application_id', applicationId),
+      client.from('field_provenance').select('*').eq('agency_id', agencyId).eq('application_id', applicationId).order('created_at'),
+      client.from('application_conflicts').select('*').eq('agency_id', agencyId).eq('application_id', applicationId).order('created_at'),
+      client.from('application_snapshots').select('*').eq('agency_id', agencyId).eq('application_id', applicationId).order('created_at'),
+    ])
+
+    const customerRow = assertNoError(customerRowResult as { data: CustomerRow; error: { message: string } | null })
+    const businessRow = assertNoError(businessRowResult as { data: BusinessRow; error: { message: string } | null })
+    const peopleRows = assertNoError(peopleRowsResult as { data: PersonRow[]; error: { message: string } | null })
+    const locationRows = assertNoError(locationRowsResult as { data: LocationRow[]; error: { message: string } | null })
+    const vehicleRows = assertNoError(vehicleRowsResult as { data: VehicleRow[]; error: { message: string } | null })
+    const policyRow = assertNoError(policyRowResult as { data: PolicyRow; error: { message: string } | null })
+    const lossRows = assertNoError(lossRowsResult as { data: LossRow[]; error: { message: string } | null })
+    const documentRows = assertNoError(documentRowsResult as { data: DocumentRow[]; error: { message: string } | null })
+    const fieldStateRows = assertNoError(fieldStateRowsResult as { data: FieldStateRow[]; error: { message: string } | null })
+    const provenanceRows = assertNoError(provenanceRowsResult as { data: ProvenanceRow[]; error: { message: string } | null })
+    const conflictRows = assertNoError(conflictRowsResult as { data: ConflictRow[]; error: { message: string } | null })
+    const snapshotRows = assertNoError(snapshotRowsResult as { data: SnapshotRow[]; error: { message: string } | null })
 
     const customer: CustomerRecord = {
       id: customerRow.id,
@@ -449,6 +489,14 @@ export const createSupabasePersistence = (client: SupabaseClient = getSupabaseBr
     }))
   },
   async saveCustomer(customer: CustomerRecord) {
+    await Promise.all([
+      syncCustomerChildRows(client, 'people', customer.agency_id, customer.id, customer.profile.people.map((person) => person.id)),
+      syncCustomerChildRows(client, 'locations', customer.agency_id, customer.id, customer.profile.locations.map((location) => location.id)),
+      syncCustomerChildRows(client, 'vehicles', customer.agency_id, customer.id, customer.profile.vehicles.map((vehicle) => vehicle.id)),
+      syncCustomerChildRows(client, 'loss_history', customer.agency_id, customer.id, customer.profile.lossHistory.map((loss) => loss.id)),
+      syncCustomerChildRows(client, 'documents', customer.agency_id, customer.id, customer.profile.documents.map((document) => document.id)),
+    ])
+
     await assertWriteResult(client.from('customers').upsert({
       id: customer.id,
       agency_id: customer.agency_id,
@@ -616,6 +664,9 @@ export const createSupabasePersistence = (client: SupabaseClient = getSupabaseBr
     }))))
   },
   async saveConflicts(agencyId: string, applicationId: string, conflicts: ConflictRecord[]) {
+    await syncApplicationConflicts(client, agencyId, applicationId, conflicts.map((conflict) => conflict.id))
+    if (conflicts.length === 0) return
+
     await assertWriteResult(client.from('application_conflicts').upsert(conflicts.map((conflict) => ({
       id: conflict.id,
       agency_id: agencyId,

@@ -25,6 +25,19 @@ as $$
   );
 $$;
 
+create or replace function public.is_valid_insurance_document_path(object_name text)
+returns boolean
+language sql
+stable
+as $$
+  select
+    coalesce(array_length(storage.foldername(object_name), 1), 0) = 4
+    and nullif((storage.foldername(object_name))[1], '') is not null
+    and nullif((storage.foldername(object_name))[2], '') is not null
+    and nullif((storage.foldername(object_name))[3], '') is not null
+    and public.is_agency_member((storage.foldername(object_name))[1]);
+$$;
+
 create table if not exists public.agencies (
   id text primary key,
   name text not null,
@@ -386,23 +399,23 @@ create policy "agency members read private insurance documents"
 on storage.objects for select
 using (
   bucket_id = 'insurance-documents'
-  and public.is_agency_member((storage.foldername(name))[1])
+  and public.is_valid_insurance_document_path(name)
 );
 
 create policy "agency members upload private insurance documents"
 on storage.objects for insert
 with check (
   bucket_id = 'insurance-documents'
-  and public.is_agency_member((storage.foldername(name))[1])
+  and public.is_valid_insurance_document_path(name)
 );
 
 create policy "agency members update private insurance documents"
 on storage.objects for update
 using (
   bucket_id = 'insurance-documents'
-  and public.is_agency_member((storage.foldername(name))[1])
+  and public.is_valid_insurance_document_path(name)
 )
 with check (
   bucket_id = 'insurance-documents'
-  and public.is_agency_member((storage.foldername(name))[1])
+  and public.is_valid_insurance_document_path(name)
 );

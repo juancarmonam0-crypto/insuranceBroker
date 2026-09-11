@@ -254,7 +254,7 @@ export const processDocumentIntake = (application: ApplicationRecord) => {
         document.type === 'Current Policy' ? { ...document, status: 'complete' as const } : document,
       ),
       fieldProvenance: application.profile.fieldProvenance.map((item) =>
-        item.sourceDocument === 'CurrentPolicy.pdf' ? { ...item, timestamp } : item,
+        item.sourceDocument === 'CurrentPolicy.pdf' ? { ...item, customerConfirmed: false, timestamp } : item,
       ),
     },
   }

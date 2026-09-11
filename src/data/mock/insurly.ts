@@ -2,6 +2,7 @@ import { commercialAcord125Definition } from '../../domain/applicationDefinition
 import type { AgencyConfig, ApplicationRecord, BrokerMetric, CustomerRecord } from '../../domain/types'
 
 const now = '2026-09-11T04:06:33.095Z'
+const buildDocumentStoragePath = (fileName: string) => `agency-insurly-demo/customer-nexo/app-nexo-rental-solutions/${fileName}`
 
 export const agencyConfig: AgencyConfig = {
   id: 'agency-insurly-demo',
@@ -108,7 +109,7 @@ export const demoCustomer: CustomerRecord = {
         fileName: 'CurrentPolicy.pdf',
         status: 'uploading',
         uploadedAt: now,
-        storagePath: 'agency-insurly-demo/customer-nexo/app-nexo-rental-solutions/CurrentPolicy.pdf',
+        storagePath: buildDocumentStoragePath('CurrentPolicy.pdf'),
         mimeType: 'application/pdf',
       },
       {
@@ -120,7 +121,7 @@ export const demoCustomer: CustomerRecord = {
         fileName: 'PreviousAcord125.pdf',
         status: 'extracting',
         uploadedAt: now,
-        storagePath: 'agency-insurly-demo/customer-nexo/app-nexo-rental-solutions/PreviousAcord125.pdf',
+        storagePath: buildDocumentStoragePath('PreviousAcord125.pdf'),
         mimeType: 'application/pdf',
       },
       {
@@ -132,7 +133,7 @@ export const demoCustomer: CustomerRecord = {
         fileName: 'LossRuns.pdf',
         status: 'review_required',
         uploadedAt: now,
-        storagePath: 'agency-insurly-demo/customer-nexo/app-nexo-rental-solutions/LossRuns.pdf',
+        storagePath: buildDocumentStoragePath('LossRuns.pdf'),
         mimeType: 'application/pdf',
       },
       {
@@ -144,7 +145,7 @@ export const demoCustomer: CustomerRecord = {
         fileName: 'TexasLLCFiling.pdf',
         status: 'complete',
         uploadedAt: now,
-        storagePath: 'agency-insurly-demo/customer-nexo/app-nexo-rental-solutions/TexasLLCFiling.pdf',
+        storagePath: buildDocumentStoragePath('TexasLLCFiling.pdf'),
         mimeType: 'application/pdf',
       },
       {
@@ -156,7 +157,7 @@ export const demoCustomer: CustomerRecord = {
         fileName: 'VehicleSchedule.xlsx',
         status: 'processing',
         uploadedAt: now,
-        storagePath: 'agency-insurly-demo/customer-nexo/app-nexo-rental-solutions/VehicleSchedule.xlsx',
+        storagePath: buildDocumentStoragePath('VehicleSchedule.xlsx'),
         mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
       },
     ],

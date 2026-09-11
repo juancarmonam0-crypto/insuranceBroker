@@ -113,6 +113,7 @@ describe('normalization and conflicts', () => {
 
     expect(updated.profile.preferredChannel).toBe('document_upload')
     expect(updated.profile.documents.find((item) => item.type === 'Current Policy')?.status).toBe('complete')
+    expect(updated.profile.fieldProvenance.find((item) => item.sourceDocument === 'CurrentPolicy.pdf')?.customerConfirmed).toBe(false)
     expect(updated.profile.fieldProvenance.find((item) => item.sourceDocument === 'CurrentPolicy.pdf')?.timestamp).not.toBe(beforeTimestamp)
   })
 
