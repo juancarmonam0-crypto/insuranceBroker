@@ -7,7 +7,7 @@ import { useAppState } from '../../state/useAppState'
 const brokerNav = ['Dashboard', 'Customers', 'Applications', 'Needs Review', 'Documents', 'Analytics', 'Settings']
 
 export const BrokerDashboardPage = () => {
-  const { application, readiness } = useAppState()
+  const { application, readiness, persistenceMode, persistenceState } = useAppState()
 
   return (
     <div className="stack-lg">
@@ -31,6 +31,7 @@ export const BrokerDashboardPage = () => {
           <div>
             <strong>{application.customerName}</strong>
             <p className="muted">{application.lineOfBusiness} · {application.completion}% completion · {readiness.blockers.length} blocker{readiness.blockers.length === 1 ? '' : 's'}</p>
+            <p className="muted">Persistence: {persistenceMode} · {persistenceState}</p>
           </div>
           <div className="button-row">
             <StatusBadge status={application.status} />
@@ -43,7 +44,7 @@ export const BrokerDashboardPage = () => {
 }
 
 export const BrokerApplicationPage = () => {
-  const { application, readiness, resolveConflict, markBrokerVerified } = useAppState()
+  const { application, readiness, resolveConflict, markBrokerVerified, latestSnapshot, snapshots, persistenceMode, persistenceState, persistenceError } = useAppState()
 
   return (
     <div className="stack-lg">
@@ -69,18 +70,26 @@ export const BrokerApplicationPage = () => {
             <li><strong>Broker verification:</strong> {application.brokerVerified ? 'Satisfied' : 'Pending'}</li>
           </ul>
         </SurfaceCard>
-        <SurfaceCard title="Readiness blockers" eyebrow="Authoritative readiness engine">
-          {readiness.blockers.length === 0 ? (
-            <p className="muted">No blockers remain. The application is ready to submit.</p>
-          ) : (
-            <ul className="list-clean list-clean--spaced">
-              {readiness.blockers.map((blocker) => (
-                <li key={`${blocker.type}-${blocker.canonicalField ?? blocker.message}`}>{blocker.message}</li>
-              ))}
-            </ul>
-          )}
+        <SurfaceCard title="Prepared snapshot status" eyebrow="Persistence foundation">
+          <ul className="list-clean">
+            <li><strong>Persistence:</strong> {persistenceMode} ({persistenceState})</li>
+            <li><strong>Snapshot history:</strong> {snapshots.length}</li>
+            <li><strong>Latest snapshot:</strong> {latestSnapshot ? latestSnapshot.createdAt : 'None yet'}</li>
+          </ul>
+          {persistenceError ? <p className="muted">{persistenceError}</p> : null}
         </SurfaceCard>
       </div>
+      <SurfaceCard title="Readiness blockers" eyebrow="Authoritative readiness engine">
+        {readiness.blockers.length === 0 ? (
+          <p className="muted">No blockers remain. The application is ready to submit.</p>
+        ) : (
+          <ul className="list-clean list-clean--spaced">
+            {readiness.blockers.map((blocker) => (
+              <li key={`${blocker.type}-${blocker.canonicalField ?? blocker.message}`}>{blocker.message}</li>
+            ))}
+          </ul>
+        )}
+      </SurfaceCard>
       <SurfaceCard title="Broker actions" eyebrow="Needs Review workflow">
         <div className="button-row button-row--wrap">
           <button className="button button--secondary" type="button" onClick={markBrokerVerified}>Verify Application</button>
@@ -150,28 +159,48 @@ export const BrokerApplicationPage = () => {
 }
 
 export const BrokerFormsPage = () => {
-  const { acordPreview, markGenerated, application } = useAppState()
+  const { acordPreview, markGenerated, application, latestSnapshot, snapshots, readiness } = useAppState()
 
   return (
     <div className="stack-lg">
       <div className="page-header">
         <div>
           <p className="eyebrow">ACORD 125 forms</p>
-          <h1>Preview mapping and generate the application representation</h1>
+          <h1>Preview mapping and prepare an immutable snapshot</h1>
           <p className="lede">ACORD-specific target fields remain isolated in the adapter layer.</p>
         </div>
         <div className="button-row">
           <button className="button button--secondary" type="button">Preview Mapping</button>
-          <button className="button" type="button" onClick={markGenerated}>Generate Application</button>
+          <button className="button" type="button" onClick={() => void markGenerated()} disabled={!readiness.ready}>Generate Application</button>
         </div>
       </div>
-      <SurfaceCard title="Adapter status">
+      <SurfaceCard title="Working application">
         <div className="hero-stats">
           <div><strong>{acordPreview.mappedCount}/{acordPreview.rows.length}</strong><span>mapped</span></div>
           <div><strong>{acordPreview.missingCount}</strong><span>missing</span></div>
           <div><strong>{acordPreview.reviewRequiredCount}</strong><span>review required</span></div>
         </div>
-        <p className="muted">Generate refreshes mapping metadata only. Status remains {application.status.replaceAll('_', ' ')}.</p>
+        <p className="muted">Generate keeps status at {application.status.replaceAll('_', ' ')} and creates a new prepared snapshot only when the application is ready.</p>
+      </SurfaceCard>
+      <SurfaceCard title="Prepared snapshot" eyebrow="Immutable history">
+        <ul className="list-clean list-clean--spaced">
+          <li><strong>Snapshots created:</strong> {snapshots.length}</li>
+          <li><strong>Latest created at:</strong> {latestSnapshot?.createdAt ?? 'Not generated yet'}</li>
+          <li><strong>Latest hash:</strong> {latestSnapshot?.snapshotHash ?? 'Not generated yet'}</li>
+        </ul>
+        {latestSnapshot ? (
+          <div className="table-like">
+            {latestSnapshot.snapshot.fieldStates.slice(0, 4).map((fieldState) => (
+              <div className="table-like__row provenance-row" key={fieldState.canonicalField}>
+                <div><strong>{fieldState.canonicalField}</strong><p className="muted">Prepared application value</p></div>
+                <div><strong>{String(fieldState.selectedValue ?? 'Missing')}</strong><p className="muted">Snapshot at {latestSnapshot.createdAt}</p></div>
+                <div><strong>{fieldState.customerConfirmed ? 'Confirmed' : 'Pending'}</strong><p className="muted">{fieldState.brokerVerified ? 'Verified' : 'Not verified'}</p></div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="muted">Prepare the application after readiness blockers are cleared to capture an immutable snapshot.</p>
+        )}
       </SurfaceCard>
       <SurfaceCard title="Sample mapping rows">
         <div className="table-like">

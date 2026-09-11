@@ -30,6 +30,16 @@ const completeRequiredQuestions = () => {
 }
 
 describe('requirements and wizard', () => {
+  test('application retains definition id and version through workflow changes', () => {
+    let application = createApplication()
+    application = answerRequirement(application, 'business.yearsInBusiness', 6)
+    application = answerRequirement(application, 'business.fein', '92-1845601')
+    application = applyCustomerReviewChange(application, 'business.annualRevenue', 150000)
+
+    expect(application.definitionId).toBe(demoApplication.definitionId)
+    expect(application.definitionVersion).toBe(demoApplication.definitionVersion)
+  })
+
   test('completion derives from applicable required requirements', () => {
     const application = createApplication()
     const completion = computeCompletion(application, getDefinition(application))

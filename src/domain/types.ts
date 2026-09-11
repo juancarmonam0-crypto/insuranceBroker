@@ -46,6 +46,12 @@ export type RequirementInputType =
   | 'vehicle'
   | 'file_upload'
 
+export type CustomerType = 'business' | 'individual'
+
+export type PersistenceMode = 'local' | 'supabase'
+
+export type PersistenceState = 'loading' | 'ready' | 'error'
+
 export interface AgencyConfig {
   id: string
   name: string
@@ -122,11 +128,15 @@ export interface LossRecord {
 export interface DocumentRecord {
   agency_id: string
   id: string
-  application_id: string
+  application_id?: string
+  customer_id?: string
   type: string
   fileName: string
   status: DocumentStatus
   uploadedAt: string
+  storagePath?: string
+  mimeType?: string
+  metadata?: Record<string, string | number | boolean>
 }
 
 export interface FieldProvenance {
@@ -143,6 +153,7 @@ export interface FieldProvenance {
   customerConfirmed: boolean
   brokerVerified: boolean
   timestamp: string
+  metadata?: Record<string, string | number | boolean>
 }
 
 export interface ApplicationFieldState {
@@ -190,6 +201,31 @@ export interface CanonicalProfile {
   lossHistory: LossRecord[]
   documents: DocumentRecord[]
   fieldProvenance: FieldProvenance[]
+}
+
+export interface CustomerProfile {
+  agency_id: string
+  customer_id: string
+  preferredChannel: ChannelType
+  business: BusinessProfile
+  people: PersonProfile[]
+  locations: LocationProfile[]
+  vehicles: VehicleProfile[]
+  currentInsurance: PolicyProfile
+  lossHistory: LossRecord[]
+  documents: DocumentRecord[]
+}
+
+export interface CustomerRecord {
+  id: string
+  agency_id: string
+  type: CustomerType
+  displayName: string
+  email?: string
+  phone?: string
+  createdAt: string
+  updatedAt: string
+  profile: CustomerProfile
 }
 
 export interface ValidationMetadata {
@@ -249,6 +285,7 @@ export interface ReadinessResult {
 export interface ApplicationRecord {
   agency_id: string
   id: string
+  customerId: string
   customerName: string
   lineOfBusiness: string
   definitionId: string
@@ -263,6 +300,48 @@ export interface ApplicationRecord {
   brokerVerified: boolean
   brokerNotes: string[]
   generatedAt?: string
+  createdAt: string
+  updatedAt: string
+}
+
+export interface SnapshotMappingResult {
+  mappedCount: number
+  missingCount: number
+  reviewRequiredCount: number
+  rows: MappingRow[]
+}
+
+export interface ApplicationSnapshotPayload {
+  applicationId: string
+  agencyId: string
+  customerId: string
+  definitionId: string
+  definitionVersion: number
+  lineOfBusiness: string
+  status: ApplicationStatus
+  completion: number
+  fieldStates: ApplicationFieldState[]
+  customerConfirmed: boolean
+  brokerVerified: boolean
+  profile: CanonicalProfile
+  provenance: FieldProvenance[]
+  conflicts: ConflictRecord[]
+  readiness: ReadinessResult
+  mappingResult?: SnapshotMappingResult
+  generatedAt?: string
+  createdAt: string
+}
+
+export interface ApplicationSnapshotRecord {
+  id: string
+  agency_id: string
+  application_id: string
+  applicationDefinitionId: string
+  applicationDefinitionVersion: number
+  snapshotHash: string
+  createdAt: string
+  createdBy: string
+  snapshot: ApplicationSnapshotPayload
 }
 
 export interface WizardQuestionOption {

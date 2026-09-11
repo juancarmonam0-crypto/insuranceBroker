@@ -447,3 +447,8 @@ strong {
     width: min(100%, calc(100% - 1rem));
   }
 }
+
+.button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
