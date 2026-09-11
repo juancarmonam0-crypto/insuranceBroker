@@ -80,10 +80,9 @@ export const evaluateConflicts = (application: ApplicationRecord, requirements: 
     .map((requirement) => evaluateConflict(application, requirement))
     .filter((conflict): conflict is ConflictRecord => conflict !== null)
 
-  const evaluatedFields = new Set(evaluated.map((conflict) => conflict.canonicalField))
   const retainedResolved = application.conflicts.filter((conflict) => {
     if (conflict.status !== 'resolved') return false
-    return requirementMap.has(conflict.canonicalField) && evaluatedFields.has(conflict.canonicalField)
+    return requirementMap.has(conflict.canonicalField)
   })
 
   const merged = new Map<string, ConflictRecord>()

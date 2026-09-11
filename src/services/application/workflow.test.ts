@@ -68,6 +68,18 @@ describe('normalization and conflicts', () => {
     expect(conflict?.status).toBe('open')
   })
 
+  test('repeating the same customer answer does not duplicate provenance history', () => {
+    let application = createApplication()
+    application = answerRequirement(application, 'business.fein', '92-1845601')
+    const firstCount = application.profile.fieldProvenance.filter((item) => item.canonicalField === 'business.fein' && item.sourceType === 'customer_answer').length
+
+    application = answerRequirement(application, 'business.fein', '92-1845601')
+    const secondCount = application.profile.fieldProvenance.filter((item) => item.canonicalField === 'business.fein' && item.sourceType === 'customer_answer').length
+
+    expect(firstCount).toBe(1)
+    expect(secondCount).toBe(1)
+  })
+
   test('conflicts resolve by id and correct_value uses caller supplied value', () => {
     let application = applyCustomerReviewChange(createApplication(), 'business.annualRevenue', 150000)
     const conflictId = application.conflicts[0]?.id

@@ -1,6 +1,7 @@
 import { getApplicationDefinition } from '../../domain/applicationDefinitions'
 import type { ApplicationRecord, FieldProvenance, FieldValue } from '../../domain/types'
 import { evaluateConflicts, getRelevantEvidence, resolveConflict as resolveFieldConflict } from '../conflicts/conflictEngine'
+import { valuesEquivalent } from '../conflicts/normalization'
 import { getSupportedCanonicalFields, getFieldValue, hasMeaningfulValue, setFieldValue } from './fieldAccess'
 import { calculateReadiness } from './readinessEngine'
 import {
@@ -99,7 +100,7 @@ const appendCustomerProvenance = (
 ) => {
   const definition = getDefinition(application)
   const existing = application.profile.fieldProvenance.find(
-    (item) => item.canonicalField === canonicalField && item.sourceType === 'customer_answer' && item.value === value,
+    (item) => item.canonicalField === canonicalField && item.sourceType === 'customer_answer' && valuesEquivalent(item.value, value),
   )
 
   if (existing) {
